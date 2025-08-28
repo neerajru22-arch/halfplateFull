@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
 import { api } from '../services/api';
@@ -9,7 +9,7 @@ import { useAuth } from '../auth/AuthContext';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, } from 'recharts';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
-import { PlusIcon, TrashIcon, LinkIcon, MagnifyingGlassIcon } from '../components/icons/Icons';
+import { PlusIcon, TrashIcon, LinkIcon, MagnifyingGlassIcon, MinusIcon } from '../components/icons/Icons';
 
 const getOrderStatusBadge = (status: OrderStatus) => {
   const baseClasses = 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full';
@@ -272,7 +272,148 @@ const useElapsedTime = (startTime: number | null) => {
     return elapsedTime;
 };
 
+
 // --- START: Waiter Dashboard ---
+
+const SwipeableMenuItem: React.FC<{
+    item: MenuItem;
+    quantity: number;
+    onAdd: () => void;
+    onRemove: () => void;
+    onSetQuantity: (qty: number) => void;
+}> = ({ item, quantity, onAdd, onRemove, onSetQuantity }) => {
+    const [dragX, setDragX] = useState(0);
+    const itemRef = useRef<HTMLLIElement>(null);
+    const dragInfo = useRef({
+        startX: 0,
+        isDragging: false,
+        isIntentionalDrag: false,
+        longPressTimeout: null as NodeJS.Timeout | null,
+    });
+    const [showQuantityModal, setShowQuantityModal] = useState(false);
+    const [customQuantity, setCustomQuantity] = useState(quantity || 1);
+
+    const dragThreshold = 60; // pixels
+
+    const handlePointerDown = (clientX: number) => {
+        dragInfo.current.startX = clientX;
+        dragInfo.current.isDragging = true;
+        dragInfo.current.isIntentionalDrag = false;
+
+        dragInfo.current.longPressTimeout = setTimeout(() => {
+            if (dragInfo.current.isDragging && !dragInfo.current.isIntentionalDrag) {
+                setCustomQuantity(quantity || 1);
+                setShowQuantityModal(true);
+                // Prevent click and drag from firing
+                dragInfo.current.isDragging = false;
+            }
+        }, 700);
+    };
+
+    const handlePointerMove = (clientX: number) => {
+        if (!dragInfo.current.isDragging) return;
+        
+        const deltaX = clientX - dragInfo.current.startX;
+        if (Math.abs(deltaX) > 10) {
+            dragInfo.current.isIntentionalDrag = true;
+            if (dragInfo.current.longPressTimeout) {
+                clearTimeout(dragInfo.current.longPressTimeout);
+            }
+        }
+        setDragX(deltaX);
+    };
+
+    const handlePointerUp = () => {
+        if (dragInfo.current.longPressTimeout) {
+            clearTimeout(dragInfo.current.longPressTimeout);
+        }
+        if (!dragInfo.current.isDragging) return;
+
+        if (dragInfo.current.isIntentionalDrag) {
+            if (dragX > dragThreshold) onAdd();
+            else if (dragX < -dragThreshold) onRemove();
+        } else {
+            // It was a tap
+            onAdd();
+        }
+
+        // Spring back animation
+        if (itemRef.current) {
+            itemRef.current.style.transition = 'transform 0.3s ease';
+        }
+        setDragX(0);
+        dragInfo.current.isDragging = false;
+    };
+    
+    const onTouchStart = (e: React.TouchEvent) => handlePointerDown(e.touches[0].clientX);
+    const onTouchMove = (e: React.TouchEvent) => handlePointerMove(e.touches[0].clientX);
+
+    const onMouseDown = (e: React.MouseEvent) => handlePointerDown(e.clientX);
+    const onMouseMove = (e: React.MouseEvent) => handlePointerMove(e.clientX);
+
+    useEffect(() => {
+        const currentItemRef = itemRef.current;
+        const handleTransitionEnd = () => {
+            if (currentItemRef) currentItemRef.style.transition = '';
+        };
+        currentItemRef?.addEventListener('transitionend', handleTransitionEnd);
+        return () => currentItemRef?.removeEventListener('transitionend', handleTransitionEnd);
+    }, []);
+
+    const formatCurrency = (value: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value);
+
+    return (
+        <li
+            ref={itemRef}
+            className="relative select-none touch-pan-y"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={handlePointerUp}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={handlePointerUp}
+            onMouseLeave={handlePointerUp}
+        >
+            <div className={`absolute inset-0 flex justify-between items-center px-4 rounded-lg transition-colors ${dragX > 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                {dragX > 0 ? <PlusIcon className="w-6 h-6 text-green-600" /> : <div></div>}
+                {dragX < 0 ? <MinusIcon className="w-6 h-6 text-red-600" /> : <div></div>}
+            </div>
+
+            <div
+                className="relative py-3 flex justify-between items-center bg-white"
+                style={{ transform: `translateX(${dragX}px)`, transition: dragX === 0 ? 'transform 0.3s ease' : 'none' }}
+            >
+                <div>
+                    <p className="font-medium text-slate-800 text-base">{item.name}</p>
+                    <p className="text-sm text-slate-500">{formatCurrency(item.price)}</p>
+                </div>
+                <div className="flex items-center space-x-2">
+                    {quantity > 0 && <span className="text-sm font-bold bg-primary text-white rounded-full w-6 h-6 flex items-center justify-center">{quantity}</span>}
+                    <Button size="md" onClick={onAdd} className="hidden sm:flex">Add</Button>
+                </div>
+            </div>
+             {showQuantityModal && (
+                <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-20">
+                    <form onSubmit={(e) => { e.preventDefault(); onSetQuantity(customQuantity); setShowQuantityModal(false); }}>
+                        <div className="flex items-center space-x-2">
+                             <input
+                                type="number"
+                                value={customQuantity}
+                                onChange={(e) => setCustomQuantity(Number(e.target.value))}
+                                className="w-20 text-center text-lg font-bold border-2 border-primary rounded-md p-2"
+                                autoFocus
+                            />
+                            <Button type="submit" size="md">Set</Button>
+                            <Button type="button" size="md" variant="secondary" onClick={() => setShowQuantityModal(false)}>Cancel</Button>
+                        </div>
+                    </form>
+                </div>
+            )}
+        </li>
+    );
+};
+
+
 const TableManagementModal: React.FC<{
     tables: TableType[];
     onClose: () => void;
@@ -312,6 +453,30 @@ const TableManagementModal: React.FC<{
             return [...prev, { id: item.id, name: item.name, price: item.price, quantity: 1 }];
         });
     };
+    
+    const handleRemoveItem = (itemId: string) => {
+        setNewlyAddedItems(prev => {
+            const existing = prev.find(i => i.id === itemId);
+            if (existing && existing.quantity > 1) {
+                return prev.map(i => i.id === itemId ? { ...i, quantity: i.quantity - 1 } : i);
+            }
+            return prev.filter(i => i.id !== itemId);
+        });
+    };
+
+    const handleSetItemQuantity = (itemId: string, quantity: number) => {
+        if (!menuItems) return;
+        setNewlyAddedItems(prev => {
+            if (quantity <= 0) return prev.filter(i => i.id !== itemId);
+            const existing = prev.find(i => i.id === itemId);
+            if (existing) return prev.map(i => i.id === itemId ? { ...i, quantity } : i);
+            
+            const menuItem = menuItems.find(mi => mi.id === itemId);
+            if (menuItem) return [...prev, { id: menuItem.id, name: menuItem.name, price: menuItem.price, quantity }];
+            
+            return prev;
+        });
+    };
 
     const handleSendToKitchen = async () => {
         if (representativeTable.orderId && newlyAddedItems.length > 0) {
@@ -349,7 +514,7 @@ const TableManagementModal: React.FC<{
                         <h3 className="font-semibold text-lg text-secondary">Seat New Customers</h3>
                         <p className="text-sm text-slate-500">Combined Capacity: {combinedCapacity}</p>
                         <div className="mt-4">
-                            <label htmlFor="covers" className="block text-sm font-medium text-slate-700">Number of Guests</label>
+                            <label htmlFor="covers" className="block text-sm font-medium text-slate-700 mb-2">Number of Guests</label>
                             <input 
                                 type="number" 
                                 id="covers" 
@@ -447,15 +612,19 @@ const TableManagementModal: React.FC<{
                             {menuLoading ? <p>Loading menu...</p> : (
                             <div className="flex-grow overflow-y-auto -mr-4 pr-4">
                                 <ul className="divide-y divide-slate-200">
-                                    {filteredMenuItems?.map(item => (
-                                        <li key={item.id} className="py-3 flex justify-between items-center">
-                                            <div>
-                                                <p className="font-medium text-slate-800 text-base">{item.name}</p>
-                                                <p className="text-sm text-slate-500">{formatCurrency(item.price)}</p>
-                                            </div>
-                                            <Button size="md" onClick={() => handleAddItem(item)}>Add</Button>
-                                        </li>
-                                    ))}
+                                    {filteredMenuItems?.map(item => {
+                                      const quantity = newlyAddedItems.find(i => i.id === item.id)?.quantity || 0;
+                                      return (
+                                        <SwipeableMenuItem
+                                            key={item.id}
+                                            item={item}
+                                            quantity={quantity}
+                                            onAdd={() => handleAddItem(item)}
+                                            onRemove={() => handleRemoveItem(item.id)}
+                                            onSetQuantity={(qty) => handleSetItemQuantity(item.id, qty)}
+                                        />
+                                      );
+                                    })}
                                 </ul>
                             </div>
                             )}
@@ -473,7 +642,7 @@ const TableManagementModal: React.FC<{
                             Send to Kitchen
                             {newlyAddedItems.length > 0 && (
                                 <span className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary-700 text-white text-xs font-bold">
-                                    {newlyAddedItems.length}
+                                    {newlyAddedItems.reduce((acc, item) => acc + item.quantity, 0)}
                                 </span>
                             )}
                         </Button>
@@ -502,6 +671,31 @@ const TakeawayModal: React.FC<{
             return [...prev, { id: item.id, name: item.name, price: item.price, quantity: 1 }];
         });
     };
+
+    const handleRemoveItem = (itemId: string) => {
+        setNewlyAddedItems(prev => {
+            const existing = prev.find(i => i.id === itemId);
+            if (existing && existing.quantity > 1) {
+                return prev.map(i => i.id === itemId ? { ...i, quantity: i.quantity - 1 } : i);
+            }
+            return prev.filter(i => i.id !== itemId);
+        });
+    };
+
+    const handleSetItemQuantity = (itemId: string, quantity: number) => {
+        if (!menuItems) return;
+        setNewlyAddedItems(prev => {
+            if (quantity <= 0) return prev.filter(i => i.id !== itemId);
+            const existing = prev.find(i => i.id === itemId);
+            if (existing) return prev.map(i => i.id === itemId ? { ...i, quantity } : i);
+            
+            const menuItem = menuItems.find(mi => mi.id === itemId);
+            if (menuItem) return [...prev, { id: menuItem.id, name: menuItem.name, price: menuItem.price, quantity }];
+            
+            return prev;
+        });
+    };
+
 
     const handleSendToKitchen = async () => {
         if (newlyAddedItems.length > 0) {
@@ -571,15 +765,19 @@ const TakeawayModal: React.FC<{
                         {menuLoading ? <p>Loading menu...</p> : (
                         <div className="flex-grow overflow-y-auto -mr-4 pr-4">
                             <ul className="divide-y divide-slate-200">
-                                {filteredMenuItems?.map(item => (
-                                    <li key={item.id} className="py-3 flex justify-between items-center">
-                                        <div>
-                                            <p className="font-medium text-slate-800 text-base">{item.name}</p>
-                                            <p className="text-sm text-slate-500">{formatCurrency(item.price)}</p>
-                                        </div>
-                                        <Button size="md" onClick={() => handleAddItem(item)}>Add</Button>
-                                    </li>
-                                ))}
+                                {filteredMenuItems?.map(item => {
+                                    const quantity = newlyAddedItems.find(i => i.id === item.id)?.quantity || 0;
+                                    return (
+                                        <SwipeableMenuItem
+                                            key={item.id}
+                                            item={item}
+                                            quantity={quantity}
+                                            onAdd={() => handleAddItem(item)}
+                                            onRemove={() => handleRemoveItem(item.id)}
+                                            onSetQuantity={(qty) => handleSetItemQuantity(item.id, qty)}
+                                        />
+                                    );
+                                })}
                             </ul>
                         </div>
                         )}
@@ -593,9 +791,14 @@ const TakeawayModal: React.FC<{
                             size="md"
                             onClick={handleSendToKitchen} 
                             disabled={newlyAddedItems.length === 0}
-                            className="py-3"
+                            className="relative py-3"
                         >
-                            Send to Kitchen
+                             Send to Kitchen
+                            {newlyAddedItems.length > 0 && (
+                                <span className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary-700 text-white text-xs font-bold">
+                                    {newlyAddedItems.reduce((acc, item) => acc + item.quantity, 0)}
+                                </span>
+                            )}
                         </Button>
                     </div>
                 </div>
@@ -957,13 +1160,11 @@ const ChefDashboard: React.FC = () => {
     // A KOT is 'New' if ALL its items are 'New'.
     const newKots = activeKots.filter(k => k.items.every(i => i.status === KotStatus.New));
     
-    // A KOT is 'Preparing' if at least one item is 'Preparing' and no items are 'New'.
-    // BUG FIX: The KOT should be 'Preparing' if ANY item is preparing, OR some are ready and some are preparing. It is NOT new and NOT fully ready.
+    // BUG FIX: The KOT should be 'Preparing' if ANY item is preparing OR some are ready and some are preparing. It is NOT new and NOT fully ready.
     const preparingKots = activeKots.filter(k => !newKots.some(nk => nk.id === k.id));
 
     const takeawayKots = activeKots.filter(k => k.orderType === OrderType.Takeaway);
     const dineInNewKots = newKots.filter(k => k.orderType === OrderType.DineIn);
-    // BUG FIX: The preparing KOTs for dine-in should be filtered from the corrected `preparingKots` list.
     const dineInPreparingKots = preparingKots.filter(k => k.orderType === OrderType.DineIn);
 
 
