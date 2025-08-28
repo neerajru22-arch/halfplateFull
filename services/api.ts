@@ -1,4 +1,3 @@
-
 import { Order, OrderStatus, InventoryItem, Recipe, ThreeWayMatchItem, MatchStatus, DashboardMetric, User, UserRole, Outlet, Requisition, RequisitionStatus, Department, StaffMember, StaffRole, Vendor, VendorStatus, VendorPerformance, Table, TableStatus, CustomerOrder, CustomerOrderItem, MenuItem, KOT, KotStatus, KOTItem, Kitchen, Floor, OrderType, RequisitionItem, Ingredient, CustomerOrderItemStatus, MenuEngineeringCategory, MenuEngineeringItem, WastageEntry, ActivityLogEntry, WastageReason, VendorItem } from '../types';
 
 // --- MOCK DATABASE ---
@@ -557,6 +556,16 @@ export const api = {
             
             // BUG FIX: Remove the KOT from the chef's view when the bill is closed.
             mockKots = mockKots.filter(kot => kot.tableId !== order.tableId);
+            
+            logActivity({
+                userId: user.id,
+                userName: user.name,
+                userRole: user.role,
+                outletId: outlet.id,
+                outletName: outlet.name,
+                action: 'Bill Finalized',
+                details: `Closed order ${order.id} for ${tables.map(t=>t.name).join(', ')} (Total: ${new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(order.total)})`
+            });
 
             return simulateApiCall({ order, tables });
         }

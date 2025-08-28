@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
@@ -283,6 +282,7 @@ const TableManagementModal: React.FC<{
     const isClubbed = tables.length > 1;
     const representativeTable = tables[0];
     const combinedCapacity = tables.reduce((sum, t) => sum + t.capacity, 0);
+    const { user, selectedOutlet } = useAuth();
 
     const { data: orderResult, loading: orderLoading, refetch: refetchOrder } = useApi(api.getCustomerOrder, representativeTable.orderId || '');
     const { data: menuItems, loading: menuLoading } = useApi(api.getMenuItems);
@@ -323,7 +323,6 @@ const TableManagementModal: React.FC<{
     };
 
     const handleFinalizeBill = async () => {
-        const { user, selectedOutlet } = useAuth();
         if (representativeTable.orderId && user && selectedOutlet) {
             await api.closeOrder(representativeTable.orderId, user, selectedOutlet);
             onAction();
@@ -463,7 +462,7 @@ const TableManagementModal: React.FC<{
                         </div>
                     </div>
                      <div className="flex-shrink-0 p-4 bg-slate-100 border-t border-slate-200 flex justify-between items-center sticky bottom-0">
-                        <Button variant="danger" size="md" onClick={handleFinalizeBill} className="py-3">Finalize Bill</Button>
+                        <Button variant="danger" size="md" onClick={handleFinalizeBill} className="py-3">Finalize Bill & Clear Table</Button>
                         <Button 
                             variant="primary" 
                             size="md"
