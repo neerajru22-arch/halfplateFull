@@ -1,0 +1,86 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Halfplate | Restaurant Procurement</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: {
+                DEFAULT: '#4338ca',
+                '50': '#eef2ff',
+                '100': '#e0e7ff',
+                '200': '#c7d2fe',
+                '300': '#a5b4fc',
+                '400': '#818cf8',
+                '500': '#6366f1',
+                '600': '#4f46e5',
+                '700': '#4338ca',
+                '800': '#3730a3',
+                '900': '#312e81'
+              },
+              secondary: '#1e293b',
+              slate: {
+                '50': '#f8fafc',
+                '100': '#f1f5f9',
+                '200': '#e2e8f0',
+                '300': '#cbd5e1',
+                '400': '#94a3b8',
+                '500': '#64748b',
+                '600': '#475569',
+                '700': '#334155',
+                '800': '#1e293b',
+                '900': '#0f172a'
+              },
+              teal: {
+                '100': '#ccfbf1',
+                '200': '#99f6e4',
+                '300': '#5eead4',
+                '400': '#2dd4bf',
+                '500': '#14b8a6',
+                '600': '#0d9488',
+                '700': '#0f766e',
+                '800': '#115e59',
+                '900': '#134e4a',
+              },
+              violet: {
+                '100': '#f5f3ff',
+                '300': '#c4b5fd',
+                '800': '#5b21b6',
+              },
+              neutral: {
+                '100': '#f1f5f9', // slate-100
+                '200': '#e2e8f0', // slate-200
+                '600': '#475569', // slate-600
+                '800': '#1e293b', // slate-800
+              },
+              success: '#16a34a',
+              danger: '#dc2626',
+              warning: '#f59e0b',
+            }
+          }
+        }
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.8.2",
+    "recharts": "https://aistudiocdn.com/recharts@^3.1.2"
+  }
+}
+</script>
+</head>
+  <body class="bg-slate-100">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
